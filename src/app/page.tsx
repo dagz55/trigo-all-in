@@ -5,7 +5,6 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { getRoute, geocode, Coordinate } from "@/services/mapbox";
 import { Button } from "@/components/ui/button";
-import { Map } from "lucide-react";
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
 
@@ -84,6 +83,17 @@ const MapboxExample = () => {
       );
     });
 
+    mapRef.current.on('click', (e) => {
+      const clickedCoordinate: Coordinate = {
+        longitude: e.lngLat.lng,
+        latitude: e.lngLat.lat,
+      };
+
+      setDestination(clickedCoordinate);
+      setDropoffLat(e.lngLat.lat);
+      setDropoffLng(e.lngLat.lng);
+    });
+
     return () => {
       mapRef.current?.remove();
     };
@@ -151,7 +161,7 @@ const MapboxExample = () => {
               "line-cap": "round",
             },
             paint: {
-              "line-color": "#00BFFF", // Sky Blue
+              "line-color": "hsl(var(--primary))", // Sky Blue
               "line-width": 5,
               "line-opacity": 0.9,
             },
