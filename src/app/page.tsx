@@ -161,7 +161,7 @@ const MapboxExample = () => {
               "line-cap": "round",
             },
             paint: {
-              "line-color": "hsl(var(--primary))", // Sky Blue
+              "line-color": "hsl(var(--primary))",
               "line-width": 5,
               "line-opacity": 0.9,
             },
