@@ -18,6 +18,8 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Enable standalone output mode
+  output: 'standalone',
 };
 
 export default nextConfig;
