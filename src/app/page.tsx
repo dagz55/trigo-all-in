@@ -3,9 +3,9 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-// import { Geocoder } from "@mapbox/search-js-react";
 import { getRoute, geocode, Coordinate } from "@/services/mapbox";
 import { Button } from "@/components/ui/button";
+import { Map } from "lucide-react";
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
 
@@ -16,6 +16,11 @@ const MapboxExample = () => {
   const [route, setRoute] = useState<Coordinate[]>([]);
   const [origin, setOrigin] = useState<Coordinate | null>(null);
   const [destination, setDestination] = useState<Coordinate | null>(null);
+  const [pickupLat, setPickupLat] = useState<number | null>(null);
+  const [pickupLng, setPickupLng] = useState<number | null>(null);
+  const [dropoffLat, setDropoffLat] = useState<number | null>(null);
+  const [dropoffLng, setDropoffLng] = useState<number | null>(null);
+  const [routeCoords, setRouteCoords] = useState<number[][] | null>(null);
 
   // Function to handle geocoding and update the map
   const handleGeocode = useCallback(
@@ -24,6 +29,8 @@ const MapboxExample = () => {
       if (results && results.length > 0) {
         const location = results[0];
         setDestination(location.coordinate);
+        setDropoffLat(location.coordinate.latitude);
+        setDropoffLng(location.coordinate.longitude);
 
         if (mapRef.current) {
           mapRef.current.flyTo({
@@ -58,10 +65,18 @@ const MapboxExample = () => {
             latitude: position.coords.latitude,
           };
           setOrigin(userLocation);
+          setPickupLat(position.coords.latitude);
+          setPickupLng(position.coords.longitude);
+
           mapRef.current?.flyTo({
             center: [userLocation.longitude, userLocation.latitude],
             zoom: 12,
           });
+
+          // Add pickup marker
+          new mapboxgl.Marker({ color: "green" })
+            .setLngLat([userLocation.longitude, userLocation.latitude])
+            .addTo(mapRef.current);
         },
         (error) => {
           console.error("Error getting user location:", error);
@@ -73,6 +88,24 @@ const MapboxExample = () => {
       mapRef.current?.remove();
     };
   }, []);
+
+  useEffect(() => {
+    const fetchRoute = async () => {
+      if (pickupLng && pickupLat && dropoffLng && dropoffLat) {
+        const res = await fetch(
+          `https://api.mapbox.com/directions/v5/mapbox/driving/${pickupLng},${pickupLat};${dropoffLng},${dropoffLat}?geometries=geojson&access_token=${process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN}`
+        );
+        const data = await res.json();
+
+        if (data.routes && data.routes.length > 0) {
+          setRouteCoords(data.routes[0].geometry.coordinates);
+        }
+      }
+    };
+
+    fetchRoute();
+  }, [pickupLat, pickupLng, dropoffLat, dropoffLng]);
+
 
   useEffect(() => {
     if (mapRef.current && origin && destination) {
@@ -118,10 +151,18 @@ const MapboxExample = () => {
               "line-cap": "round",
             },
             paint: {
-              "line-color": "hsl(var(--primary))", // Use Tailwind CSS variable for the route color
-              "line-width": 6,
+              "line-color": "#00BFFF", // Sky Blue
+              "line-width": 5,
+              "line-opacity": 0.9,
             },
           });
+        }
+
+        // Add dropoff marker
+        if (destination) {
+          new mapboxgl.Marker({ color: "red" })
+            .setLngLat([destination.longitude, destination.latitude])
+            .addTo(mapRef.current);
         }
       })();
     }
@@ -129,18 +170,18 @@ const MapboxExample = () => {
 
   return (
     <div className="relative w-full h-screen">
-      {/*       
       <div className="absolute top-4 left-4 z-10 w-96 p-2 rounded-md bg-white/80">
-        <Geocoder
-          accessToken={mapboxgl.accessToken}
-          value={searchTerm}
-          onChange={(e) => {
-            setSearchTerm(e);
-          }}
-          onSelect={(e) => {
-            handleGeocode(e.result.place_name);
-          }}
+        <input
+          type="text"
           placeholder="Search for a destination"
+          className="w-full p-2 rounded-md"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              handleGeocode(searchTerm);
+            }
+          }}
         />
         {origin && destination && (
           <div className="mt-2">
@@ -153,8 +194,8 @@ const MapboxExample = () => {
           </div>
         )}
       </div>
-      */}
-      <div ref={mapContainerRef} id="map" style={{ width: "100%", height: "100%" }} />;
+      <div ref={mapContainerRef} id="map" style={{ width: "100%", height: "100%" }} >
+      </div>
     </div>
   );
 };
