@@ -5,6 +5,7 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { getRoute, geocode, Coordinate } from "@/services/mapbox";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
 
@@ -20,6 +21,9 @@ const MapboxExample = () => {
   const [dropoffLat, setDropoffLat] = useState<number | null>(null);
   const [dropoffLng, setDropoffLng] = useState<number | null>(null);
   const [routeCoords, setRouteCoords] = useState<number[][] | null>(null);
+  const [distance, setDistance] = useState<number | null>(null);
+  const [duration, setDuration] = useState<number | null>(null);
+  const [showFare, setShowFare] = useState(false);
 
   // Function to handle geocoding and update the map
   const handleGeocode = useCallback(
@@ -37,6 +41,7 @@ const MapboxExample = () => {
             zoom: 12,
           });
         }
+        setShowFare(true);
       }
     },
     [mapRef]
@@ -92,6 +97,7 @@ const MapboxExample = () => {
       setDestination(clickedCoordinate);
       setDropoffLat(e.lngLat.lat);
       setDropoffLng(e.lngLat.lng);
+      setShowFare(true);
     });
 
     return () => {
@@ -109,6 +115,8 @@ const MapboxExample = () => {
 
         if (data.routes && data.routes.length > 0) {
           setRouteCoords(data.routes[0].geometry.coordinates);
+          setDistance(data.routes[0].distance);
+          setDuration(data.routes[0].duration);
         }
       }
     };
@@ -120,63 +128,98 @@ const MapboxExample = () => {
   useEffect(() => {
     if (mapRef.current && origin && destination) {
       (async () => {
-        const calculatedRoute = await getRoute(origin, destination);
-        setRoute(calculatedRoute.geometry);
+        const calculatedRoute = getRoute(origin, destination);
+        calculatedRoute.then(route => {
+          setRoute(route.geometry);
 
-        // Add the route as a source and layer on the map
-        if (mapRef.current.getSource("route")) {
-          (mapRef.current.getSource("route") as mapboxgl.GeoJSONSource).setData({
-            type: "Feature",
-            properties: {},
-            geometry: {
-              type: "LineString",
-              coordinates: calculatedRoute.geometry.map((coord) => [
-                coord.longitude,
-                coord.latitude,
-              ]),
-            },
-          });
-        } else {
-          mapRef.current.addSource("route", {
-            type: "geojson",
-            data: {
+          // Add the route as a source and layer on the map
+          if (mapRef.current.getSource("route")) {
+            (mapRef.current.getSource("route") as mapboxgl.GeoJSONSource).setData({
               type: "Feature",
               properties: {},
               geometry: {
                 type: "LineString",
-                coordinates: calculatedRoute.geometry.map((coord) => [
+                coordinates: route.geometry.map((coord) => [
                   coord.longitude,
                   coord.latitude,
                 ]),
               },
-            },
-          });
+            });
+          } else {
+            mapRef.current.addSource("route", {
+              type: "geojson",
+              data: {
+                type: "Feature",
+                properties: {},
+                geometry: {
+                  type: "LineString",
+                  coordinates: route.geometry.map((coord) => [
+                    coord.longitude,
+                    coord.latitude,
+                  ]),
+                },
+              },
+            });
 
-          mapRef.current.addLayer({
-            id: "route",
-            type: "line",
-            source: "route",
-            layout: {
-              "line-join": "round",
-              "line-cap": "round",
-            },
-            paint: {
-              "line-color": "hsl(var(--primary))",
-              "line-width": 5,
-              "line-opacity": 0.9,
-            },
-          });
-        }
+            mapRef.current.addLayer({
+              id: "route",
+              type: "line",
+              source: "route",
+              layout: {
+                "line-join": "round",
+                "line-cap": "round",
+              },
+              paint: {
+                "line-color": "#00BFFF",
+                "line-width": 5,
+                "line-opacity": 0.9,
+              },
+            });
+          }
 
-        // Add dropoff marker
-        if (destination) {
-          new mapboxgl.Marker({ color: "red" })
-            .setLngLat([destination.longitude, destination.latitude])
-            .addTo(mapRef.current);
-        }
+          // Add dropoff marker
+          if (destination) {
+            new mapboxgl.Marker({ color: "red" })
+              .setLngLat([destination.longitude, destination.latitude])
+              .addTo(mapRef.current);
+          }
+        })
+
       })();
     }
   }, [origin, destination]);
+
+  const handleConfirm = () => {
+    alert("Booking Confirmed!");
+    setShowFare(false);
+    setSearchTerm("");
+    setDestination(null);
+    setDropoffLat(null);
+    setDropoffLng(null);
+    setRouteCoords(null);
+    setDistance(null);
+    setDuration(null);
+    if (mapRef.current) {
+      mapRef.current.removeLayer('route');
+      mapRef.current.removeSource('route');
+    }
+
+  };
+
+  const handleCancel = () => {
+    setShowFare(false);
+    setSearchTerm("");
+    setDestination(null);
+    setDropoffLat(null);
+    setDropoffLng(null);
+    setRouteCoords(null);
+    setDistance(null);
+    setDuration(null);
+    if (mapRef.current) {
+      mapRef.current.removeLayer('route');
+      mapRef.current.removeSource('route');
+    }
+  };
 
   return (
     <div className="relative w-full h-screen">
@@ -204,6 +247,25 @@ const MapboxExample = () => {
           </div>
         )}
       </div>
+      {showFare && destination && (
+        <div className="absolute top-4 right-4 z-10 w-96 p-4 rounded-md bg-white/80">
+          <Card>
+            <CardHeader>
+              <CardTitle>Fare Details</CardTitle>
+              <CardDescription>Confirm or cancel your booking</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p>Distance: {(distance || 0) / 1000} km</p>
+              <p>Duration: {(duration || 0) / 60} minutes</p>
+              <p>Estimated Fare: ${((distance || 0) / 1000) * 2 + ((duration || 0) / 60) * 0.5}</p>
+              <div className="flex justify-between mt-4">
+                <Button variant="outline" onClick={handleCancel}>Cancel</Button>
+                <Button onClick={handleConfirm}>Confirm Booking</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
       <div ref={mapContainerRef} id="map" style={{ width: "100%", height: "100%" }} >
       </div>
     </div>
