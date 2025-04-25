@@ -7,6 +7,7 @@
   packages = [
     pkgs.nodejs_20
     pkgs.docker
+    pkgs.opensshcat ~/.ssh/id_ed25519.pub
   ];
   # Sets environment variables in the workspace
   env = {};
