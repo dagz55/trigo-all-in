@@ -30,8 +30,8 @@ Ready to dive in? Follow these simple steps:
 
 1.  **Clone the repository (if you haven't already):**
     ```bash
-    git clone <your-repo-url>
-    cd <your-repo-name>
+    git clone https://github.com/dagz55/trigo-all-in
+    cd trigo-all-in
     ```
 2.  **Install dependencies:**
     ```bash
